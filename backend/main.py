@@ -55,6 +55,35 @@ def ranking(limit: int = 50, db: Session = Depends(get_db)):
     ]
 
 
+@app.get("/api/debug/dict-check")
+async def debug_dict_check(word: str = "사과"):
+    """배포 환경에서 사전 API 연동 상태를 점검하기 위한 임시 진단용 엔드포인트."""
+    import os
+
+    import httpx
+
+    from backend.dictionary_api import API_URL
+
+    api_key = os.environ.get("KOREAN_DICT_API_KEY")
+    key_info = f"present, length={len(api_key)}" if api_key else "MISSING"
+
+    if not api_key:
+        return {"key_info": key_info}
+
+    params = {"key": api_key, "q": word, "req_type": "json"}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(API_URL, params=params)
+            return {
+                "key_info": key_info,
+                "http_status": resp.status_code,
+                "body_length": len(resp.text),
+                "body_preview": resp.text[:1500],
+            }
+    except Exception as exc:
+        return {"key_info": key_info, "exception": str(exc)}
+
+
 @app.get("/api/profile/records")
 def my_records(limit: int = 20, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     records = (
