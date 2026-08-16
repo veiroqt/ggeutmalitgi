@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>끝말잇기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="navbar" id="navbar"></div>
+
+  <div class="page">
+    <div class="hero">
+      <h1>끝말잇기</h1>
+      <p>실시간 멀티플레이 끝말잇기 게임에 참여해보세요.</p>
+      <div class="btn-grid">
+        <a class="btn" href="lobby.html"><i data-lucide="play"></i> 게임 시작</a>
+        <a class="btn secondary" href="lobby.html"><i data-lucide="plus"></i> 방 만들기</a>
+        <a class="btn secondary" href="lobby.html"><i data-lucide="search"></i> 방 찾기</a>
+        <a class="btn secondary" href="ranking.html"><i data-lucide="trophy"></i> 랭킹</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>renderNavbar("index"); refreshIcons();</script>
+</body>
+</html>

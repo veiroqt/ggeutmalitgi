@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>게임 - 끝말잇기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="navbar" id="navbar"></div>
+
+  <div id="conn-status" class="hint hidden" style="text-align:center; padding:8px; background:var(--surface-2);"></div>
+
+  <div class="page">
+
+    <div class="step-track">
+      <span class="step-dot is-current" id="step-dot-lobby"></span>
+      <span class="step-line"></span>
+      <span class="step-dot" id="step-dot-waiting"></span>
+      <span class="step-line"></span>
+      <span class="step-dot" id="step-dot-game"></span>
+    </div>
+
+    <!-- 방 목록 / 방 만들기 (탭) -->
+    <div id="lobby-view">
+      <div class="card">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="list-panel">방 목록</button>
+          <button class="tab-btn" data-tab="create-panel">방 만들기</button>
+        </div>
+
+        <div id="list-panel" class="tab-panel">
+          <div class="row between" style="margin-bottom:12px">
+            <div class="row" style="max-width:320px">
+              <input id="join-code-input" placeholder="방 코드 입력" maxlength="6" style="text-transform:uppercase" />
+              <button class="secondary" id="join-by-code-btn">참가</button>
+            </div>
+            <button class="secondary" id="refresh-rooms-btn"><i data-lucide="refresh-cw"></i></button>
+          </div>
+          <div id="room-list-empty" class="hint">참가 가능한 방이 없습니다. "방 만들기" 탭에서 방을 만들어보세요.</div>
+          <div id="room-list"></div>
+        </div>
+
+        <div id="create-panel" class="tab-panel hidden">
+          <label for="room-name-input">방 이름</label>
+          <input id="room-name-input" maxlength="50" placeholder="예: 초보만 환영" />
+
+          <label for="room-password-input">비밀번호 (선택)</label>
+          <input id="room-password-input" placeholder="비워두면 공개방" />
+
+          <div class="error-msg" id="create-error-msg"></div>
+
+          <button id="create-room-submit-btn" class="full-width"><i data-lucide="plus"></i> 방 만들기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 대기실 화면 -->
+    <div id="waiting-view" class="hidden">
+      <div class="card">
+        <div class="row between">
+          <h2 id="waiting-room-name"></h2>
+          <span class="badge" id="waiting-room-code"></span>
+        </div>
+        <p class="hint">방 코드를 친구에게 공유해서 초대하세요.</p>
+        <ul class="player-list" id="waiting-player-list"></ul>
+        <div class="row" style="margin-top:16px">
+          <button id="start-game-btn"><i data-lucide="play"></i> 게임 시작</button>
+          <button class="secondary" id="leave-room-btn"><i data-lucide="arrow-left"></i> 방 나가기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div id="game-view" class="hidden">
+      <div class="game-layout">
+        <div class="card game-board">
+          <div class="players-row" id="players-row"></div>
+
+          <div class="board-center">
+            <div class="board-center-main">
+              <div class="board-label">제시어</div>
+              <div class="current-word-display" id="current-word-display">단어를 입력하세요</div>
+              <div><span class="turn-banner" id="turn-banner">대기 중...</span></div>
+            </div>
+            <div class="timer-box">
+              <div class="board-label">남은 시간</div>
+              <div class="timer-badge" id="timer-display">15</div>
+            </div>
+          </div>
+
+          <form id="word-form" class="row">
+            <input id="word-input" placeholder="단어 입력 (한글, 2글자 이상)" autocomplete="off" />
+            <button type="submit"><i data-lucide="send"></i></button>
+          </form>
+          <div class="error-msg" id="word-error-msg"></div>
+
+          <div class="row between" style="margin-top:18px">
+            <h3 style="margin:0">사용된 단어 (<span id="word-count">0</span>)</h3>
+          </div>
+          <div class="word-history" id="word-history"></div>
+        </div>
+
+        <div class="card chat-card">
+          <h3>채팅</h3>
+          <div class="chat-box">
+            <div class="chat-messages" id="chat-messages"></div>
+            <form id="chat-form" class="chat-input-row">
+              <input id="chat-input" placeholder="메시지 입력" autocomplete="off" />
+              <button type="submit"><i data-lucide="send"></i></button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 결과 화면 -->
+  <div id="result-overlay" class="result-overlay hidden">
+    <div class="result-card">
+      <div class="result-icon" id="result-icon"></div>
+      <h2 id="result-title"></h2>
+      <p id="result-reason" class="hint"></p>
+      <div class="result-stats" id="result-stats"></div>
+      <h3 style="margin:14px 0 6px">사용한 단어</h3>
+      <div class="used-words-list" id="result-words"></div>
+      <p class="hint" id="rematch-status"></p>
+      <div class="row">
+        <button id="rematch-btn"><i data-lucide="rotate-ccw"></i> 다시 플레이</button>
+        <button class="secondary" id="rematch-lobby-btn"><i data-lucide="arrow-left"></i> 로비로 이동</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sound.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/lobby.js"></script>
+  <script>renderNavbar("lobby");</script>
+</body>
+</html>
