@@ -28,6 +28,27 @@ uvicorn backend.main:app --reload
 - 점수 / 연승 / 랭킹 시스템
 - 마이페이지 (전적, 최근 게임 기록)
 
+## Render로 배포하기
+
+이 프로젝트는 WebSocket 연결과 방 상태를 메모리에 들고 있는 상시 구동 서버라, GitHub Pages나 Vercel 같은
+정적/서버리스 플랫폼에는 올릴 수 없습니다. 대신 [Render](https://render.com)처럼 프로세스를 계속 띄워주는
+곳을 사용합니다. 저장소에 있는 `render.yaml`을 그대로 인식하는 Blueprint 배포 방식입니다.
+
+1. https://render.com 에서 GitHub 계정으로 가입/로그인
+2. 대시보드에서 **New +** → **Blueprint** 선택
+3. 이 저장소(`veiroqt/ggeutmalitgi`)를 연결 (처음이면 Render가 리포지토리 접근 권한을 요청함 — 승인)
+4. Render가 `render.yaml`을 읽어 서비스 설정을 자동으로 채움. **Apply** 클릭
+5. 배포 후 서비스의 **Environment** 탭에서 아래 두 값을 채워넣기 (`render.yaml`에는 값이 비어 있음, 직접 입력해야 함)
+   - `JWT_SECRET`: 아무 긴 임의 문자열
+   - `KOREAN_DICT_API_KEY`: opendict.korean.go.kr에서 발급받은 키
+6. 저장하면 자동 재배포되고, Render가 준 `https://ggeutmalitgi.onrender.com` 같은 주소로 접속
+
+**무료 플랜 제한사항 (알아두어야 할 것)**
+- 15분간 요청이 없으면 서비스가 슬립 상태로 들어가고, 다음 접속 시 다시 깨어나는 데 30초~1분 정도 걸릴 수 있습니다.
+- 무료 플랜은 영구 디스크를 지원하지 않아서, 재배포하거나 서비스가 재시작되면 SQLite DB(`database/database.db`)가
+  초기화될 수 있습니다. 가입자/랭킹 데이터를 계속 보존하려면 유료 디스크를 추가하거나 외부 DB(Render Postgres 등)로
+  옮겨야 합니다.
+
 ## 설계 참고사항
 
 - 로비(방 목록/생성/대기실)와 게임 화면, 결과 화면은 하나의 WebSocket 연결을 유지해야 하므로
