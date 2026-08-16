@@ -44,7 +44,6 @@ function setConnStatus(text, show) {
   el.classList.toggle("hidden", !show);
 }
 
-const MAX_RECONNECT_ATTEMPTS = 5;
 let reconnectAttempts = 0;
 
 function connect() {
@@ -62,6 +61,9 @@ function connect() {
   };
 
   ws.onclose = (event) => {
+    // 4001 = 인증 실패(토큰이 유효한 요청을 받은 뒤 서버가 명시적으로 거부한 경우)로,
+    // 이때만 로그인 만료로 보고 로그아웃한다. 그 외의 연결 실패(코드 없음/1006 등)는
+    // 무료 호스팅의 슬립 상태에서 깨어나는 중일 수도 있으므로 계속 재시도만 한다.
     if (event.code === 4001) {
       clearSession();
       window.location.href = "login.html";
@@ -69,15 +71,10 @@ function connect() {
     }
 
     reconnectAttempts += 1;
-    if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-      setConnStatus("서버에 연결할 수 없습니다. 로그인 상태가 만료되었을 수 있어요 — 다시 로그인해주세요.", true);
-      clearSession();
-      setTimeout(() => (window.location.href = "login.html"), 2500);
-      return;
-    }
-
-    setConnStatus(`서버와의 연결이 끊어졌습니다. 재연결 시도 중... (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`, true);
-    setTimeout(connect, 1500);
+    const delay = Math.min(1500 + reconnectAttempts * 1000, 8000);
+    const wakingHint = reconnectAttempts >= 3 ? " (서버가 절전 상태에서 깨어나는 중일 수 있어요, 최대 1분 정도 걸릴 수 있습니다)" : "";
+    setConnStatus(`서버와의 연결이 끊어졌습니다. 재연결 시도 중...${wakingHint}`, true);
+    setTimeout(connect, delay);
   };
 
   ws.onmessage = (event) => {
