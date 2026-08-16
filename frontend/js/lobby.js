@@ -152,6 +152,9 @@ function handleMessage(msg) {
         msg.waiting_for.length ? `${msg.waiting_for.join(", ")}님의 응답을 기다리는 중...` : ""
       );
       break;
+    case "game_concluded":
+      onGameConcluded(msg);
+      break;
     case "opponent_left":
       setRematchStatus(`${msg.nickname}님이 방을 나갔습니다.`);
       document.getElementById("rematch-btn").disabled = true;
@@ -214,7 +217,10 @@ document.getElementById("join-by-code-btn").addEventListener("click", () => {
 document.getElementById("create-room-submit-btn").addEventListener("click", () => {
   const name = document.getElementById("room-name-input").value.trim();
   const password = document.getElementById("room-password-input").value.trim();
-  send({ type: "create_room", name, max_players: 2, password: password || null });
+  let maxPlayers = parseInt(document.getElementById("room-max-players-input").value, 10);
+  if (!maxPlayers || maxPlayers < 2) maxPlayers = 2;
+  if (maxPlayers > 8) maxPlayers = 8;
+  send({ type: "create_room", name, max_players: maxPlayers, password: password || null });
 });
 
 // ---------- 대기실 ----------
@@ -275,6 +281,7 @@ function renderGameState(room) {
       const isActive = player.nickname === room.turn_nickname;
       const isMe = player.nickname === myNickname;
       return `
+        ${i > 0 ? '<span class="vs-label">VS</span>' : ""}
         <div class="player-chip ${isActive ? "active" : ""}">
           <span class="player-chip-num">${i + 1}</span>
           <span class="player-chip-info">
@@ -282,7 +289,6 @@ function renderGameState(room) {
             <span class="player-chip-score">${player.score}점</span>
           </span>
         </div>
-        ${i === 0 ? '<span class="vs-label">VS</span>' : ""}
       `;
     })
     .join("");
@@ -385,11 +391,29 @@ function showResult(msg) {
   document.getElementById("result-words").innerHTML = wordsHtml;
 
   const rematchBtn = document.getElementById("rematch-btn");
-  rematchBtn.disabled = false;
-  rematchBtn.textContent = "다시 플레이";
-  setRematchStatus("");
+  if (msg.result === "win") {
+    // 승리는 곧 게임 종료를 의미하므로 바로 다시 플레이 가능
+    rematchBtn.disabled = false;
+    rematchBtn.textContent = "다시 플레이";
+    setRematchStatus("");
+  } else {
+    // 탈락한 시점엔 다른 플레이어들의 게임이 아직 진행 중일 수 있음 (다인전)
+    rematchBtn.disabled = true;
+    rematchBtn.textContent = "다시 플레이";
+    setRematchStatus("남은 플레이어들의 게임이 끝나면 다시 플레이할 수 있어요...");
+  }
 
   overlay.classList.remove("hidden");
+}
+
+function onGameConcluded(msg) {
+  const overlay = document.getElementById("result-overlay");
+  if (overlay.classList.contains("hidden")) return;
+
+  const rematchBtn = document.getElementById("rematch-btn");
+  rematchBtn.disabled = false;
+  rematchBtn.textContent = "다시 플레이";
+  setRematchStatus(msg.winner ? `${msg.winner}님의 승리로 게임이 끝났습니다.` : "게임이 종료되었습니다.");
 }
 
 function setRematchStatus(text) {

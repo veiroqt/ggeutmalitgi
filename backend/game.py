@@ -19,6 +19,7 @@ WIN_SCORE = 100
 LOSS_SCORE = 20
 STREAK_BONUS_PER_WIN = 10
 MAX_PLAYERS_DEFAULT = 2
+MAX_PLAYERS_LIMIT = 8
 
 
 def generate_room_code() -> str:
@@ -62,6 +63,7 @@ class Room:
         self.current_word: str | None = None
         self.used_words: list[str] = []
         self.word_definitions: dict[str, str | None] = {}
+        self.turn_order: list[Player] = []
         self.turn_index = 0
         self.turn_deadline: float = 0.0
         self.started_at: float = 0.0
@@ -89,7 +91,7 @@ class Room:
             "current_word": self.current_word,
             "used_words": self.used_words,
             "word_definitions": self.word_definitions,
-            "turn_nickname": self.players[self.turn_index].nickname if self.players and self.status == "playing" else None,
+            "turn_nickname": self.turn_order[self.turn_index].nickname if self.turn_order and self.status == "playing" else None,
             "seconds_left": max(0, round(self.turn_deadline - time.time())) if self.status == "playing" else TURN_SECONDS,
         }
 
@@ -112,6 +114,7 @@ class Room:
         self.current_word = None
         self.used_words = []
         self.word_definitions = {}
+        self.turn_order = list(self.players)
         self.turn_index = 0
         self.started_at = time.time()
         self.rematch_requests = set()
@@ -170,9 +173,8 @@ class Room:
         async with self._lock:
             if self.status != "playing":
                 return
-            loser = self.players[self.turn_index]
-            winner = self.players[(self.turn_index + 1) % len(self.players)]
-            await self._end_game(winner, loser, reason="시간 초과")
+            loser = self.turn_order[self.turn_index]
+            await self._eliminate(loser, reason="시간 초과")
 
     async def submit_word(self, user_id: int, word: str):
         async with self._lock:
@@ -180,7 +182,7 @@ class Room:
                 await self._send_error(user_id, "게임이 진행 중이 아닙니다.")
                 return
 
-            current_player = self.players[self.turn_index]
+            current_player = self.turn_order[self.turn_index]
             if current_player.user_id != user_id:
                 await self._send_error(user_id, "당신의 턴이 아닙니다.")
                 return
@@ -222,7 +224,7 @@ class Room:
             self.used_words.append(word)
             self.word_definitions[word] = definition
             current_player.words.append(word)
-            self.turn_index = (self.turn_index + 1) % len(self.players)
+            self.turn_index = (self.turn_index + 1) % len(self.turn_order)
 
             await self.broadcast(
                 {
@@ -241,59 +243,85 @@ class Room:
             await player.send({"type": "word_rejected", "message": message})
 
     async def forfeit(self, user_id: int):
-        """게임 중 접속이 끊긴 플레이어를 패배 처리한다."""
+        """게임 중 접속이 끊긴 플레이어를 패배 처리(탈락)한다."""
         async with self._lock:
-            if self.status != "playing" or len(self.players) < 2:
+            if self.status != "playing":
                 return
-            loser = self.find_player(user_id)
+            loser = next((p for p in self.turn_order if p.user_id == user_id), None)
             if loser is None:
                 return
-            winner = next(p for p in self.players if p.user_id != user_id)
-            await self._end_game(winner, loser, reason="상대방 연결 끊김")
+            await self._eliminate(loser, reason="상대방 연결 끊김")
 
-    async def _end_game(self, winner: Player, loser: Player, reason: str):
+    async def _eliminate(self, loser: Player, reason: str):
+        """한 명을 패배 처리하고 턴 순서에서 제거한다. 마지막 한 명만 남으면 게임을 종료한다."""
+        idx = self.turn_order.index(loser)
+        is_current_turn = idx == self.turn_index
+        del self.turn_order[idx]
+        if idx < self.turn_index:
+            self.turn_index -= 1
+
+        duration = round(time.time() - self.started_at)
+        others = ", ".join(p.nickname for p in self.players if p.user_id != loser.user_id)
+        result = _apply_result(loser.user_id, won=False)
+        words = [{"word": w, "definition": self.word_definitions.get(w)} for w in loser.words]
+        save_game_record(loser.user_id, others, "loss", words, duration, result["score_change"], result["streak"])
+
+        await loser.send(
+            {
+                "type": "game_over",
+                "result": "loss",
+                "reason": reason,
+                "opponent": others,
+                "duration_seconds": duration,
+                "your_words": words,
+                "word_count": len(loser.words),
+                "score_change": result["score_change"],
+                "streak": result["streak"],
+                "total_score": result["total_score"],
+            }
+        )
+
+        if len(self.turn_order) <= 1:
+            if self._timer_task:
+                self._timer_task.cancel()
+            if self.turn_order:
+                await self._finish_room(self.turn_order[0], reason)
+            else:
+                self.status = "finished"
+                await self.broadcast({"type": "game_concluded", "winner": None, "reason": reason})
+            return
+
+        if is_current_turn:
+            self.turn_index %= len(self.turn_order)
+            self._reset_timer()
+        await self.broadcast_state()
+
+    async def _finish_room(self, winner: Player, reason: str):
         self.status = "finished"
         if self._timer_task:
             self._timer_task.cancel()
         duration = round(time.time() - self.started_at)
 
-        winner_result = _apply_result(winner.user_id, won=True)
-        loser_result = _apply_result(loser.user_id, won=False)
-
-        winner_words = [{"word": w, "definition": self.word_definitions.get(w)} for w in winner.words]
-        loser_words = [{"word": w, "definition": self.word_definitions.get(w)} for w in loser.words]
-
-        save_game_record(winner.user_id, loser.nickname, "win", winner_words, duration, winner_result["score_change"], winner_result["streak"])
-        save_game_record(loser.user_id, winner.nickname, "loss", loser_words, duration, loser_result["score_change"], loser_result["streak"])
+        others = ", ".join(p.nickname for p in self.players if p.user_id != winner.user_id)
+        result = _apply_result(winner.user_id, won=True)
+        words = [{"word": w, "definition": self.word_definitions.get(w)} for w in winner.words]
+        save_game_record(winner.user_id, others, "win", words, duration, result["score_change"], result["streak"])
 
         await winner.send(
             {
                 "type": "game_over",
                 "result": "win",
                 "reason": reason,
-                "opponent": loser.nickname,
+                "opponent": others,
                 "duration_seconds": duration,
-                "your_words": winner_words,
+                "your_words": words,
                 "word_count": len(winner.words),
-                "score_change": winner_result["score_change"],
-                "streak": winner_result["streak"],
-                "total_score": winner_result["total_score"],
+                "score_change": result["score_change"],
+                "streak": result["streak"],
+                "total_score": result["total_score"],
             }
         )
-        await loser.send(
-            {
-                "type": "game_over",
-                "result": "loss",
-                "reason": reason,
-                "opponent": winner.nickname,
-                "duration_seconds": duration,
-                "your_words": loser_words,
-                "word_count": len(loser.words),
-                "score_change": loser_result["score_change"],
-                "streak": loser_result["streak"],
-                "total_score": loser_result["total_score"],
-            }
-        )
+        await self.broadcast({"type": "game_concluded", "winner": winner.nickname, "reason": reason})
 
 
 def _apply_result(user_id: int, won: bool) -> dict:
@@ -356,7 +384,8 @@ class GameManager:
         code = generate_room_code()
         while code in self.rooms:
             code = generate_room_code()
-        room = Room(code, name, host_id, max_players or MAX_PLAYERS_DEFAULT, password)
+        max_players = max(2, min(MAX_PLAYERS_LIMIT, max_players or MAX_PLAYERS_DEFAULT))
+        room = Room(code, name, host_id, max_players, password)
         self.rooms[code] = room
         return room
 
