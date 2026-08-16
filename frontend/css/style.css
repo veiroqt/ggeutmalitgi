@@ -295,6 +295,7 @@ tr:hover td {
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
@@ -692,7 +693,7 @@ tr:hover td {
   border-radius: 4px;
   box-shadow: 6px 6px 0 var(--shadow-color);
   padding: 36px;
-  width: 420px;
+  width: min(420px, 92vw);
   max-height: 85vh;
   overflow-y: auto;
   text-align: center;
@@ -760,4 +761,61 @@ tr:hover td {
 .chat-card {
   display: flex;
   flex-direction: column;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll table {
+  min-width: 480px;
+}
+
+/* ---- 모바일 반응형 ---- */
+
+@media (max-width: 480px) {
+  .card {
+    padding: 18px;
+  }
+
+  .hero {
+    padding: 40px 12px;
+  }
+
+  .hero h1 {
+    font-size: 1.9rem;
+  }
+
+  .board-center {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .timer-box {
+    width: 100%;
+  }
+
+  .current-word-display {
+    font-size: 1.6rem;
+    padding: 8px 16px;
+  }
+
+  .player-chip {
+    min-width: 0;
+    flex: 1 1 45%;
+  }
+
+  .result-card {
+    padding: 22px;
+  }
+
+  .navbar {
+    padding: 12px 16px;
+  }
+
+  .navbar nav a {
+    padding: 7px 10px;
+    font-size: 0.82rem;
+  }
 }

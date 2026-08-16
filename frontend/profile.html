@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>마이페이지 - 끝말잇기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
@@ -36,18 +37,20 @@
 
     <div class="card">
       <h3>최근 게임 기록</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>결과</th>
-            <th>상대</th>
-            <th>사용 단어 수</th>
-            <th>점수 변화</th>
-            <th>시간</th>
-          </tr>
-        </thead>
-        <tbody id="records-body"></tbody>
-      </table>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>결과</th>
+              <th>상대</th>
+              <th>사용 단어 수</th>
+              <th>점수 변화</th>
+              <th>시간</th>
+            </tr>
+          </thead>
+          <tbody id="records-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
