@@ -25,7 +25,8 @@ async def _lookup(word: str) -> dict:
     if word in _cache:
         return _cache[word]
 
-    api_key = os.environ.get("KOREAN_DICT_API_KEY")
+    # 대시보드에 키를 붙여넣을 때 앞뒤 공백/줄바꿈이 섞여 들어가는 경우가 있어 항상 정리한다.
+    api_key = (os.environ.get("KOREAN_DICT_API_KEY") or "").strip()
     if not api_key:
         raise DictionaryAPIError(
             "사전 API 키가 설정되지 않았습니다. opendict.korean.go.kr에서 키를 발급받아 "

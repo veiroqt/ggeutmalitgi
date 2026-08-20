@@ -64,8 +64,11 @@ async def debug_dict_check(word: str = "사과"):
 
     from backend.dictionary_api import API_URL
 
-    api_key = os.environ.get("KOREAN_DICT_API_KEY")
-    key_info = f"present, length={len(api_key)}" if api_key else "MISSING"
+    raw_key = os.environ.get("KOREAN_DICT_API_KEY")
+    api_key = (raw_key or "").strip()
+    key_info = (
+        f"present, length={len(api_key)} (raw length={len(raw_key)})" if raw_key else "MISSING"
+    )
 
     if not api_key:
         return {"key_info": key_info}
